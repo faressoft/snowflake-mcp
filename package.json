@@ -4,7 +4,7 @@
   "description": "MCP server for executing Snowflake queries",
   "main": "dist/index.js",
   "bin": {
-    "snowflake-mcp": "./dist/index.js"
+    "snowflake-mcp": "dist/index.js"
   },
   "type": "module",
   "scripts": {
