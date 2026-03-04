@@ -1,6 +1,6 @@
 {
   "name": "snowflake-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "MCP server for executing Snowflake queries",
   "main": "dist/index.js",
   "bin": {
