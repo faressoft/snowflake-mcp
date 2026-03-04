@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Snowflake MCP" width="600">
+  <img src="assets/logo-600.png" alt="Snowflake MCP" width="600">
 </p>
 
 # Snowflake MCP Server
