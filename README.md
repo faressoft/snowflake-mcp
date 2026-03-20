@@ -23,7 +23,7 @@ Users can use natural language to query Snowflake databases, like:
 - **Multiple Output Formats**: Table, JSON, or CSV
 - **Query Explanation**: Get execution plans for queries
 - **MCP Prompts**: Guided workflows for common tasks
-- Support for both password and SSO (browser-based) authentication
+- Support for password, SSO (browser-based), and key-pair (JWT) authentication
 - Configurable default warehouse, database, schema, and role
 
 ## Prerequisites
@@ -82,6 +82,33 @@ A browser window will open for authentication on first query.
 }
 ```
 
+#### Key-Pair Authentication (Service Accounts / MFA environments)
+
+Use this when you are authenticating with a private key (`.p8` or `.pem`).
+
+```json
+{
+  "mcpServers": {
+    "snowflake": {
+      "command": "npx",
+      "args": ["-y", "snowflake-mcp"],
+      "env": {
+        "SNOWFLAKE_ACCOUNT": "your-org-your-account",
+        "SNOWFLAKE_USERNAME": "your-username",
+        "SNOWFLAKE_PRIVATE_KEY_PATH": "/path/to/your/private_key.p8",
+        "SNOWFLAKE_ROLE": "your-role",
+        "SNOWFLAKE_WAREHOUSE": "your-warehouse",
+        "SNOWFLAKE_DATABASE": "your-database",
+        "SNOWFLAKE_SCHEMA": "your-optional-schema",
+        "SNOWFLAKE_READONLY": "true"
+      }
+    }
+  }
+}
+```
+
+If your private key is encrypted, also set `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. If you prefer to supply the key contents directly instead of a file path, use `SNOWFLAKE_PRIVATE_KEY` with the raw PEM string.
+
 ### Claude Desktop
 
 Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
@@ -108,8 +135,11 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 | ------------------------- | ----------- | ----------------- | -------------------------------------------------------------------------- |
 | `SNOWFLAKE_ACCOUNT`       | Yes         | -                 | Your Snowflake account identifier (e.g., `ORG-ACCOUNT`)                    |
 | `SNOWFLAKE_USERNAME`      | Yes         | -                 | Snowflake username                                                         |
-| `SNOWFLAKE_AUTHENTICATOR` | No          | `externalbrowser` | Authentication method: `externalbrowser` (SSO) or `snowflake` (password)   |
-| `SNOWFLAKE_PASSWORD`      | Conditional | -                 | Required if authenticator is `snowflake`, not needed for `externalbrowser` |
+| `SNOWFLAKE_AUTHENTICATOR`         | No          | `externalbrowser` | Authentication method: `externalbrowser` (SSO), `snowflake` (password), or `SNOWFLAKE_JWT` (key-pair). Defaults to `SNOWFLAKE_JWT` when a private key is provided. |
+| `SNOWFLAKE_PASSWORD`              | Conditional | -                 | Required when authenticator is `snowflake`. Not used for SSO or key-pair.  |
+| `SNOWFLAKE_PRIVATE_KEY_PATH`      | Conditional | -                 | Path to a private key file (`.p8` or `.pem`). Required for `SNOWFLAKE_JWT` if `SNOWFLAKE_PRIVATE_KEY` is not set. |
+| `SNOWFLAKE_PRIVATE_KEY`           | Conditional | -                 | Raw PEM private key string. Alternative to `SNOWFLAKE_PRIVATE_KEY_PATH`. Cannot be used together with it. |
+| `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`| No          | -                 | Passphrase for an encrypted private key. Omit if your key has no passphrase. |
 | `SNOWFLAKE_ROLE`          | No          | -                 | Role to use for the session (uses account default if not set)              |
 | `SNOWFLAKE_WAREHOUSE`     | No          | -                 | Warehouse to use (uses account default if not set)                         |
 | `SNOWFLAKE_DATABASE`      | No          | -                 | Database to use (uses account default if not set)                          |
