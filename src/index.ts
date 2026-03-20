@@ -2,6 +2,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import fs from "node:fs";
 import snowflake from "snowflake-sdk";
 import { z } from "zod";
 
@@ -36,8 +37,40 @@ const getEnvOrThrow = (name: string): string => {
   return value;
 };
 
+const getPrivateKeyConfig = (): {
+  privateKey?: string;
+  privateKeyPath?: string;
+  privateKeyPass?: string;
+} => {
+  const privateKey = process.env.SNOWFLAKE_PRIVATE_KEY;
+  const privateKeyPath = process.env.SNOWFLAKE_PRIVATE_KEY_PATH;
+  const privateKeyPass = process.env.SNOWFLAKE_PRIVATE_KEY_PASSPHRASE;
+
+  if (privateKey && privateKeyPath) {
+    throw new Error(
+      "Set either SNOWFLAKE_PRIVATE_KEY or SNOWFLAKE_PRIVATE_KEY_PATH, not both"
+    );
+  }
+
+  if (privateKey) {
+    return { privateKey, privateKeyPass };
+  }
+
+  if (privateKeyPath) {
+    if (!fs.existsSync(privateKeyPath)) {
+      throw new Error(`Private key file not found: ${privateKeyPath}`);
+    }
+    return { privateKeyPath, privateKeyPass };
+  }
+
+  return {};
+};
+
 const createConnection = (): snowflake.Connection => {
-  const authenticator = process.env.SNOWFLAKE_AUTHENTICATOR || "externalbrowser";
+  const keyPairConfig = getPrivateKeyConfig();
+  const hasKeyPair = Boolean(keyPairConfig.privateKey || keyPairConfig.privateKeyPath);
+  const authenticator =
+    process.env.SNOWFLAKE_AUTHENTICATOR || (hasKeyPair ? "SNOWFLAKE_JWT" : "externalbrowser");
 
   const config: snowflake.ConnectionOptions = {
     account: getEnvOrThrow("SNOWFLAKE_ACCOUNT"),
@@ -47,10 +80,23 @@ const createConnection = (): snowflake.Connection => {
     warehouse: process.env.SNOWFLAKE_WAREHOUSE,
     database: process.env.SNOWFLAKE_DATABASE,
     schema: process.env.SNOWFLAKE_SCHEMA,
+    privateKey: keyPairConfig.privateKey,
+    privateKeyPath: keyPairConfig.privateKeyPath,
+    privateKeyPass: keyPairConfig.privateKeyPass,
   };
 
-  if (authenticator.toLowerCase() !== "externalbrowser") {
+  const normalizedAuthenticator = authenticator.toLowerCase();
+  const isExternalBrowser = normalizedAuthenticator === "externalbrowser";
+  const isJwtAuthenticator = normalizedAuthenticator === "snowflake_jwt";
+
+  if (!isExternalBrowser && !isJwtAuthenticator) {
     config.password = getEnvOrThrow("SNOWFLAKE_PASSWORD");
+  }
+
+  if (isJwtAuthenticator && !hasKeyPair) {
+    throw new Error(
+      "SNOWFLAKE_JWT requires SNOWFLAKE_PRIVATE_KEY or SNOWFLAKE_PRIVATE_KEY_PATH"
+    );
   }
 
   return snowflake.createConnection(config);
