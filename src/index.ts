@@ -49,7 +49,12 @@ const createConnection = (): snowflake.Connection => {
     schema: process.env.SNOWFLAKE_SCHEMA,
   };
 
-  if (authenticator.toLowerCase() !== "externalbrowser") {
+  if (authenticator.toLowerCase() === "oauth" && process.env.SNOWFLAKE_TOKEN) {
+    // OAuth / Snowflake Personal Access Token (PAT): pass token directly.
+    // SNOWFLAKE_TOKEN is used instead of SNOWFLAKE_PASSWORD so that PAT users
+    // don't need a traditional password configured.
+    (config as Record<string, unknown>).token = process.env.SNOWFLAKE_TOKEN;
+  } else if (authenticator.toLowerCase() !== "externalbrowser") {
     config.password = getEnvOrThrow("SNOWFLAKE_PASSWORD");
   }
 
