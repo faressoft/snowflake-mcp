@@ -38,6 +38,7 @@ const getEnvOrThrow = (name: string): string => {
 
 const createConnection = (): snowflake.Connection => {
   const authenticator = process.env.SNOWFLAKE_AUTHENTICATOR || "externalbrowser";
+  const authLower = authenticator.toLowerCase();
 
   const config: snowflake.ConnectionOptions = {
     account: getEnvOrThrow("SNOWFLAKE_ACCOUNT"),
@@ -49,7 +50,34 @@ const createConnection = (): snowflake.Connection => {
     schema: process.env.SNOWFLAKE_SCHEMA,
   };
 
-  if (authenticator.toLowerCase() !== "externalbrowser") {
+  if (authLower === "programmatic_access_token") {
+    // Snowflake Programmatic Access Token (PAT). Pass the token via the
+    // SDK's `token` field. Requires snowflake-sdk >= 2.4.0, which adds
+    // native handling for PAT-format tokens (PROGRAMMATIC_ACCESS_TOKEN
+    // authenticator). Use SNOWFLAKE_TOKEN to hold the PAT value.
+    (config as Record<string, unknown>).token = getEnvOrThrow("SNOWFLAKE_TOKEN");
+  } else if (authLower === "oauth" && process.env.SNOWFLAKE_TOKEN) {
+    // Generic OAuth access token (Snowflake OAuth integration). For PATs
+    // prefer PROGRAMMATIC_ACCESS_TOKEN above.
+    (config as Record<string, unknown>).token = process.env.SNOWFLAKE_TOKEN;
+  } else if (authLower === "snowflake_jwt") {
+    // Key-pair (JWT) authentication. Either set SNOWFLAKE_PRIVATE_KEY_PATH
+    // to a PEM/PKCS8 file or SNOWFLAKE_PRIVATE_KEY to the inline key body.
+    // SNOWFLAKE_PRIVATE_KEY_PASS is optional (only for encrypted keys).
+    const privateKey = process.env.SNOWFLAKE_PRIVATE_KEY;
+    const privateKeyPath = process.env.SNOWFLAKE_PRIVATE_KEY_PATH;
+    if (!privateKey && !privateKeyPath) {
+      throw new Error(
+        "SNOWFLAKE_JWT auth requires SNOWFLAKE_PRIVATE_KEY or SNOWFLAKE_PRIVATE_KEY_PATH"
+      );
+    }
+    const c = config as Record<string, unknown>;
+    if (privateKey) c.privateKey = privateKey;
+    if (privateKeyPath) c.privateKeyPath = privateKeyPath;
+    if (process.env.SNOWFLAKE_PRIVATE_KEY_PASS) {
+      c.privateKeyPass = process.env.SNOWFLAKE_PRIVATE_KEY_PASS;
+    }
+  } else if (authLower !== "externalbrowser") {
     config.password = getEnvOrThrow("SNOWFLAKE_PASSWORD");
   }
 
